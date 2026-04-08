@@ -271,13 +271,17 @@ clone → multimod → develop → multimod go → test → release pipeline
 - **Push** — push specific tags to origin (not `--tags` which pushes all local tags).
 - **Stdin detection** — fail fast with clear message if stdin is a terminal, not a pipe.
 
-**Three levels of trust:**
+**Two-phase release flow:**
 
 | Mode | What happens | Who uses |
 |------|-------------|----------|
 | (default) | Dry-run: show plan, touch nothing | Developer verification |
-| `--write` | Local: detached commit + tags | Developer local testing |
-| `--write --push` | Commit + tags + push to origin | CI pipeline |
+| `--write` | Prepare: detached commit + tags locally | Pre-publish analysis (staging area) |
+| `--push` | Ship: atomically push a prepared release | After analysis passes |
+| `--abort` | Roll back: clean up local tags and commit | After analysis fails |
+| `--write --push` | All-in-one: prepare + ship in one step | CI pipeline (no staging needed) |
+
+`--write` without `--push` is Go's missing `npm pack` — local publish-state for analysis before the point of no return. See §7.7.
 
 ### 5.3 version-bumper — Version Oracle
 
@@ -446,6 +450,18 @@ release/v1.2 (dev-state)   → detached v1.2.4
 
 **Resolution:** accepted as conscious risk. The ecosystem uses `golang.org/x/mod/modfile` (official Go library) — correct side of the API boundary. If Go adds built-in multi-module release support, the ecosystem has served its purpose. Recommendation: CI job on Go release candidates to catch breaking changes early.
 
+### 7.7 "Why don't you block on govulncheck / stable→unstable deps?"
+
+**Challenge:** OTEL enforces that stable modules don't depend on unstable ones. Security-conscious teams run `govulncheck` as a required CI check. Why doesn't multimod block on these?
+
+**Resolution:** rejected. These checks belong in the release pipeline, not the PR pipeline. PR pipeline gates only what the PR author controls — three litmus tests (responsibility, determinism, idempotency). If any is "no" → Observation, not Gate. `govulncheck` and stability checks fail all three.
+
+The deeper problem is Go-specific: where do you run release-time analysis? Go has no staging area — push tag = permanent publication via immutable `proxy.golang.org` cache. Dev-state go.mod hides real versions behind `replace ../` directives. You need publish-state to analyze, but publish-state means publication.
+
+`multirelease --write` solves this — local detached commit + tags without push. Go's missing `npm pack`. See [FAQ](/reference/faq#how-do-i-test-publish-state-before-publishing) for the full comparison and workflow.
+
+**Precedent:** Let's Encrypt Boulder made govulncheck non-blocking — *"circumstances entirely outside our control can grind Boulder development to a halt"*. Tor Project moved `cargo audit` to advisory failure.
+
 ---
 
 ## 8. Known Limitations & Future Work
@@ -468,7 +484,7 @@ Mentioned in spec but not covered by this RFC. Templates (dependabot.yml, CI con
 
 ### 8.5 Integration Testing on Go RC
 
-No CI job on Go release candidates. Risk: Go toolchain changes could break multimod. Mitigation: `golang.org/x/mod/modfile` is stable API, but semantic changes in `go mod tidy` or `go work` could affect behavior.
+No CI job on Go release candidates. Risk: Go toolchain changes could break multimod. Mitigation: `golang.org/x/mod/modfile` is stable API, but semantic changes in `go mod tidy` or `go work` could affect behavior. Note: a CI job on Go RC is an Observation, not a Gate — non-idempotent by definition. See §7.7.
 
 ### 8.6 CI Isolation Check
 
@@ -504,6 +520,7 @@ When modules have cross-dependencies (A depends on B), release order matters: B 
 | D6 | JSON module map as primary contract | Versioned (`"version": 1`), absolute paths, internal requires only. Forward-compatible (ignore unknown fields). | 2026-04-07 |
 | D7 | Explicit tag push, not `--tags` | `git push origin --tags` pushes all local tags. Explicit list prevents leaking experimental tags. | 2026-04-07 |
 | D8 | `pkg/` → `cmd/` for loose coupling | Types in `cmd/` are not importable by external tools. Forces JSON as the only interface. Architectural enforcement, not documentation. | 2026-04-07 |
+| D9 | `--write` as pre-publish staging area | Go has no `npm pack` — push tag = permanent publication. `multirelease --write` creates local publish-state for analysis before the point of no return. Gate vs Observation classifies which checks run where. | 2026-07-14 |
 
 ---
 

@@ -114,15 +114,15 @@ Module = package with `go.mod`. That's Go's rule, not ours. You either release a
 
 ### "OTEL checks that stable modules don't depend on unstable ones. You don't?"
 
-Correct. That's not a release concern — it's an analysis concern. Like Capslock analyzers, like `go vet`, like any static analysis tool. It shouldn't block your dev or release flow.
-
-Multimod reports facts. External tools apply policy:
+Correct. That's analysis, not multimod's job. Pipe it:
 
 ```bash
 multimod modules | your-stability-checker
 ```
 
-Want to check stable→unstable deps? Write a `jq` one-liner over `multimod modules` output. Want a different policy? Change the one-liner. Multimod doesn't judge your dependency graph — it describes it.
+But here's the real question: **where do you run this check?** Not in the PR pipeline — a stable→unstable check is non-idempotent (upstream releases v1.0.0 next week, same code suddenly passes). PR pipeline gates only what the author controls. See [RFC-001 §7.7](/reference/rfc-001-ecosystem#_7-7-why-don-t-you-block-on-govulncheck-stable→unstable-deps) for the full model.
+
+The right place is the release pipeline, on publish-state. And Go has a unique problem there — see ["How do I test publish-state before publishing?"](#how-do-i-test-publish-state-before-publishing) below.
 
 ### "Why do I have to specify the version manually? Can't you auto-increment?"
 
@@ -141,6 +141,53 @@ done
 ```
 
 We don't reinvent `git diff`. We give you the module list, git gives you the history, your script makes the decision. Three tools, three responsibilities, zero overlap.
+
+### "How do I test publish-state before publishing?"
+
+This is a Go-specific problem that doesn't exist in other ecosystems.
+
+In npm, you `npm pack` → test the artifact → `npm publish`. In Cargo, `cargo package` → test → `cargo publish`. In Composer, you push a tag, test, and delete it from Packagist if something's wrong.
+
+In Go, **push tag = permanent publication**. `proxy.golang.org` is an immutable cache backed by `sum.golang.org` — once cached, a version cannot be removed. Ever. `go mod retract` is not deletion — it's a "please don't use this" note that requires publishing yet another version.
+
+| | npm | Cargo | Composer | **Go** |
+|---|---|---|---|---|
+| Create artifact locally | `npm pack` | `cargo package` | — | — |
+| Test before publish | ✅ | ✅ | ✅ (push tag, test, delete) | **❌** |
+| Publish | `npm publish` | `cargo publish` | Push tag (auto) | **Push tag (auto, immutable)** |
+| Undo | `npm unpublish` (72h) | `cargo yank` | Delete tag + Packagist | **`go mod retract` (soft, new tag)** |
+
+Go is the strictest of all. No staging area. No undo.
+
+And you can't analyze dependencies in dev-state either — `replace ../` directives hide real versions. `go list -m -json all` shows local paths, not registry versions. You need publish-state go.mod to see the real dependency graph.
+
+`multirelease` solves this with a two-phase flow — like `git rebase` puts you in a rebase state, `--write` puts you in publish-state:
+
+```bash
+# 1. Prepare — switches to detached commit, you're in publish-state
+multimod modules | multirelease v1.2.3 --write
+# go.mod files are clean: no replaces, pinned versions
+# you're on the detached commit — analyze right here
+
+# 2. Analyze — no checkout needed, you're already in publish-state
+govulncheck ./...                    # security
+your-stability-checker               # stable→unstable deps
+GOWORK=off go build ./...            # isolation check
+
+# 3a. Ship — push tags + return to original HEAD
+multirelease --push
+
+# 3b. Or abort — delete tags + return to original HEAD
+multirelease --abort
+```
+
+`--write` enters publish-state. `--push` and `--abort` both return to your original HEAD — the difference is whether tags get pushed or deleted.
+
+For CI that doesn't need a staging step — `--write --push` does everything in one shot.
+
+`--write` without `--push` is Go's missing `npm pack`. The only staging area in an ecosystem that doesn't have one.
+
+For the full story — how we discovered this gap, the ecosystem comparison, and the adversarial review — see [Devlog #2](/devlog/002-gate-vs-observation).
 
 ### "I ran multimod in CI and it shows zero releases! All my tags are gone!"
 
