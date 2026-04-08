@@ -19,9 +19,7 @@ It started as a shell script inside [thumbrise/resilience](https://github.com/th
 
 The shell script grew. 20 lines of grep over JSON inside YAML. Then it broke — added a self-dependency to every module because grep matched `Module.Path` in `go mod edit -json` output. Classic.
 
-We looked around. Rust has `cargo-release`. Node has `changesets`. Java has `mvn release`. Go has... nothing. The full research, the ecosystem survey, the design decisions, the three failed architectures, the adversarial review that stress-tested the RFC — all of that is documented in the resilience devlog.
-
-<!-- TODO: waiting link for resilience last devlog about multimod extract -->
+We looked around. Rust has `cargo-release`. Node has `changesets`. Java has `mvn release`. Go has... nothing. The full research, the ecosystem survey, the design decisions, the three failed architectures, the adversarial review that stress-tested the RFC — all of that is documented in the [resilience devlog](https://thumbrise.github.io/resilience/devlog/).
 
 What matters here is the conclusion: the gap is real, nobody fills it, we're building it.
 

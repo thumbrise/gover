@@ -71,6 +71,7 @@ How to update:
 - **Functional options for optional parameters** — required params in the function signature, optional via `With*` functions.
 - **Per-entity state** — no shared or global mutable state. Each component owns its data.
 - **Multi-module by design** — the repository is a multi-module Go project managed by its own tool (dog-fooding). Each binary (`multimod/`, `multirelease/`) has its own `go.mod`. `_tools/` is workspace-only (not released). See [RFC-001](docs/reference/rfc-001-ecosystem.md) for the architectural source of truth.
+- **PR pipeline gates only what the author controls** — security scanning (govulncheck, audit) belongs in the release pipeline, not PR gates. `multirelease --write` provides the staging area for pre-publish analysis — Go has no `npm pack`. See [RFC-001 §7.7](docs/reference/rfc-001-ecosystem.md).
 
 ## Documentation
 
