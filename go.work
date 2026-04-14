@@ -3,6 +3,4 @@ go 1.26
 use (
 	.
 	_tools
-	multimod
-	multirelease
 )
