@@ -89,14 +89,14 @@ func (mc *ModulesCommand) buildOutput() modulesOutput {
 
 	subs := make([]moduleEntry, 0, len(mc.state.Subs))
 
+	// Only include internal requires — external deps are not our concern.
+	internalPaths := mc.state.InternalPaths()
+
 	for _, sub := range mc.state.Subs {
 		entry := moduleEntry{
 			Path: sub.Path,
 			Dir:  sub.Dir.String(),
 		}
-
-		// Only include internal requires — external deps are not our concern.
-		internalPaths := mc.state.InternalPaths()
 
 		for _, req := range sub.Requires {
 			if internalPaths[req] {

@@ -479,7 +479,7 @@ Manages `replace` directives in every sub-module's `go.mod`. Replace directives 
   "root": {
     "path": "github.com/example/root",
     "dir": "/abs/path/to/root",
-    "go_version": "1.23"
+    "goVersion": "1.23"
   },
   "subs": [
     {
@@ -500,7 +500,7 @@ Manages `replace` directives in every sub-module's `go.mod`. Replace directives 
 **Contract guarantees at version 1:**
 
 - `version` is always present — consumers check it before parsing. CLI tools that emit JSON version their output (`docker inspect`, `terraform state`, `kubectl get -o json`). Same pattern.
-- `root` is always present, has `path`, `dir`, `go_version`
+- `root` is always present, has `path`, `dir`, `goVersion`
 - `subs` is an array (may be empty)
 - `dir` is absolute path — pipe consumers don't know the caller's cwd
 - `requires` lists only modules discovered within the project (inter-module dependencies). Third-party `require` directives from `go.mod` (e.g. `go.opentelemetry.io/otel`) are not included — they are not multimod's concern
@@ -1227,3 +1227,10 @@ Four rounds of debate between Implementor (defender) and Critic (experienced Go 
 - HN thread E9: deep analysis with per-participant multimod answers
 - 6 rejected alternatives (R1–R6)
 - Court record: 18 debates from design session incorporated into [Disputed Points](#disputed-points)
+
+### RFC-003 Amendment (2026-04-14)
+
+**Origin:** code review of multimod-to-root PR (single-module consolidation per D14).
+
+**What changed:**
+- JSON contract: `go_version` → `goVersion` (camelCase). Aligns with de-facto JSON convention (GitHub API, Kubernetes API, OTEL, Go stdlib `encoding/json`). Pre-release, zero consumers — convention alignment, not breaking change. Schema example and contract guarantees updated. Amends D6.
