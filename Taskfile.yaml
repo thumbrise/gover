@@ -13,13 +13,13 @@ tasks:
     cmds:
       - golangci-lint run
       - go tool license-eye header check
-      - go run ./multimod go tool govulncheck ./...
+      - go run . go tool govulncheck ./...
 
   test:
     desc: Run tests
     cmds:
-      - go run ./multimod go test ./... -v
-      - go run ./multimod go test ./... -v -run=NONE -bench=. -benchmem
+      - go run . go test ./... -v
+      - go run . go test ./... -v -run=NONE -bench=. -benchmem
 
   generate:
     desc: Fix license headers
